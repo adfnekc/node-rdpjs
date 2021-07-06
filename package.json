@@ -14,6 +14,7 @@
   "main": "lib/index.js",
   "dependencies": {
     "bunyan": "^1.8.12",
+    "jimp": "^0.16.1",
     "lodash.isnumber": "^3.0.3"
   }
 }
