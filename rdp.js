@@ -1,6 +1,5 @@
 const pRDPclient = require('./promise-client');
 const Screen = require('./screen');
-const { randomInt } = require('crypto');
 const SCREEN_SIZE = { width: 1024, height: 800 };
 
 
@@ -24,21 +23,16 @@ let scrpy_rdp = async (ip, port = 3389) => {
         })
         .on('close', async function (client) {
             console.log("on close")
-            if (client.global.transport.transport.channelsConnected == 0) {
+            if (client && client.global.transport.transport.channelsConnected == 0) {
                 result.st = "remote_has_connected";
                 r();
             }
-            await s.toFileAsync(`./output/screen.jpg`);
-            result.b64 = await s.toBase64Async();
         })
         .on('bitmap', async function (bitmap) {
             s.update(bitmap);
         })
         .on('bitmaps', ({ len }) => {
             console.log("on bitmaps", len, tsc(), "s");
-            (async () => {
-                result.b64 = await s.toBase64Async();
-            })()
         })
         .on('error', function (err) { console.log("on error", err) })
 
@@ -47,7 +41,8 @@ let scrpy_rdp = async (ip, port = 3389) => {
         var tsc = () => {
             return ((new Date()).getTime() - ts) / 1000;
         }
-        await client.connect(ip, port)
+        await client.connect(ip, port);
+        console.log("connected");
 
         const readline = require('readline');
         const rl = readline.createInterface({
@@ -90,7 +85,7 @@ let sleep = async (ms) => {
 }
 
 (async () => {
-    let ip = "45.11.19.217"//45.11.19.217
+    let ip = "23.106.160.198"//45.11.19.217
     let r = await scrpy_rdp(ip);
     console.log(r);
 })()
