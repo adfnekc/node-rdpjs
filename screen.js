@@ -1,7 +1,9 @@
 const Jimp = require('jimp');
+const EventEmitter = require("events");
 
-module.exports = class Screen {
+module.exports = class Screen extends EventEmitter {
     constructor(size) {
+        super();
         size.width = size.width || 800;
         size.height = size.height || 600;
 
