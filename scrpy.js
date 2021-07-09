@@ -1,6 +1,11 @@
 const pRDPclient = require('./promise-client');
 const Screen = require('./screen');
+
 const SCREEN_SIZE = { width: 1024, height: 800 };
+const ALL_WAIT_TS = 180 * 1000;
+const SEND_MOUSE_INTERVAL = 2 * 1000;
+const MAX_MULTI_LANTENCY = 10;
+
 
 class HowLong {
     constructor() {
@@ -15,7 +20,7 @@ class HowLong {
 }
 
 let sleep = async (ms) => {
-    return new Promise((r, j) => {
+    return new Promise(async (r, j) => {
         setTimeout(() => {
             r();
         }, ms)
@@ -28,13 +33,15 @@ let sleep = async (ms) => {
  */
 async function timeout(ms, fn, args) {
     return new Promise(async (resolve, reject) => {
-        setTimeout(() => {
+        let t = setTimeout(() => {
             reject(`timeout err in function ${fn.name}`);
         }, ms);
         try {
             let r = await fn(args);
+            clearTimeout(t);
             resolve(r);
         } catch (e) {
+            clearTimeout(t);
             reject(e)
         }
     })
@@ -45,7 +52,7 @@ async function timeout(ms, fn, args) {
  * @param s {Screen}
  */
 async function wait_pic(s) {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         let latest_ts = 0, recv_bitmaps_count = 0, sum_lantency_ts = 0, avg_lantency = 0, t = 0;
         s.on('bitmaps', (len, howlong) => {
             let ms = howlong.take_ms();
@@ -66,7 +73,7 @@ async function wait_pic(s) {
                 t = setTimeout(async () => {
                     console.log(`Exceeding timeout len:${len},count:${recv_bitmaps_count},current_lantency:${howlong.take_ms() - latest_ts}ms,avg_lantency:${avg_lantency}ms/c`, howlong.take_ms(), "ms");
                     resolve();
-                }, avg_lantency * 30)
+                }, avg_lantency * MAX_MULTI_LANTENCY);
             }
             latest_ts = ms;
         })
@@ -74,11 +81,9 @@ async function wait_pic(s) {
 
 }
 
-/**
- * @returns 
- */
+
 let scrpy_rdp = async (ip, port = 3389) => {
-    let s = new Screen(SCREEN_SIZE);
+    let screen = new Screen(SCREEN_SIZE);
     let howlong = new HowLong();
     const client = new pRDPclient({
         domain: '',
@@ -90,34 +95,23 @@ let scrpy_rdp = async (ip, port = 3389) => {
         logLevel: 'DEBUG'
     })
 
-    const readline = require('readline');
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-    rl.on('line', (line) => {
-        console.log("on line", line);
-        switch (line) {
-            case "s":
-                s.toFileAsync(`./output/latest.jpg`);
-                break;
-        }
-    });
 
     client.client
-        .on('connect', function () {
-            console.log("connect ...");
-        })
         .on('close', async function (client) {
-            s.emit('close', client);
+            screen.emit('close', client);
         })
         .on('bitmap', async function (bitmap) {
-            s.update(bitmap);
+            screen.update(bitmap);
         })
         .on('bitmaps', (len) => {
-            s.emit('bitmaps', len, howlong);
+            screen.emit('bitmaps', len, howlong);
         })
-        .on('error', function (err) { console.log("on error", err) })
+        .on('error', function (err) {
+            if (err.code == 'ECONNRESET') {
+                return
+            }
+            console.log("on error", err)
+        })
 
     try {
         await client.connect(ip, port);
@@ -129,12 +123,15 @@ let scrpy_rdp = async (ip, port = 3389) => {
             let button = 0;
             let isPressed = false;
             client.client.sendPointerEvent(x, y, button, isPressed);
-        }, 2 * 1000)
+        }, SEND_MOUSE_INTERVAL)
 
-        await timeout(180 * 1000, wait_pic, s)
+        await timeout(ALL_WAIT_TS, wait_pic, screen);
+
         client.end();
+        await client.close();
+        clearInterval(mouseItv);
         return {
-            pic: await s.toBase64Async(),
+            buf: await screen.get_low_jpeg_buf(),
             ip: ip,
             port: port
         }
@@ -143,10 +140,5 @@ let scrpy_rdp = async (ip, port = 3389) => {
     }
 }
 
-
-(async () => {
-    let ip = "45.11.19.217"//45.11.19.217
-    let r = await scrpy_rdp(ip);
-    console.log(r);
-})()
+module.exports = scrpy_rdp
 

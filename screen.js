@@ -36,6 +36,18 @@ module.exports = class Screen extends EventEmitter {
         await this.image.writeAsync(filename);
     }
 
+    async getBufferAsync() {
+        return await this.image.getBufferAsync(this.image.getMIME());
+    }
+
+    /**
+     * @returns {Promise<Buffer>} 
+     */
+    async get_low_jpeg_buf() {
+        this.image.quality(90);
+        return await this.image.getBufferAsync("image/jpeg");
+    }
+
     async toBase64Async() {
         return await this.image.getBase64Async(this.image.getMIME());
     }

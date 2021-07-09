@@ -21,6 +21,8 @@ module.exports = class pRDPclient extends EventEmitter {
 
     end() {
         this.client.close();
+        this.client.bufferLayer.close();
+        this.client.bufferLayer.secureSocket.end();
     }
 
     async close() {
