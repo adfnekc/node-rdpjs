@@ -1,20 +1,23 @@
 {
-  "name": "node-rdpjs-2",
-  "author": "Sylvain Peyrefitte",
-  "version": "0.3.5",
+  "name": "node-rdpjs",
+  "author": "adfnekc",
+  "version": "0.1.1",
   "engines": {
     "node": ">=8.5.0"
   },
-  "description": "Remote Desktop Protocol in Node.js (updated for newer version of Node)",
+  "description": "Remote Desktop Protocol in Node.js (updated for newer version of Node) base on Sylvain Peyrefitte`s work",
   "license": "AGPL-3.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Siyer2/node-rdpjs"
+    "url": "https://github.com/adfnekc/node-rdpjs"
   },
-  "main": "lib/index.js",
+  "main": "rdp",
   "dependencies": {
     "bunyan": "^1.8.12",
     "jimp": "^0.16.1",
     "lodash.isnumber": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^16.3.0"
   }
 }

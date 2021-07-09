@@ -9,6 +9,9 @@ module.exports = class Screen extends EventEmitter {
 
         this.size = size;
         this.partialImage = null;
+        /**
+         * @type {Jimp}
+        */
         this.image = null;
 
         new Jimp(64, 64, (err, newImage) => {

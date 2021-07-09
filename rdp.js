@@ -2,78 +2,16 @@ const pRDPclient = require('./promise-client');
 const Screen = require('./screen');
 const SCREEN_SIZE = { width: 1024, height: 800 };
 
-
-let scrpy_rdp = async (ip, port = 3389) => {
-    let result = { ip: ip, port: port }
-    let s = new Screen(SCREEN_SIZE);
-
-    const client = new pRDPclient({
-        domain: '',
-        enablePerf: false,
-        autoLogin: false,
-        decompress: true,
-        screen: SCREEN_SIZE,
-        locale: 'en',
-        logLevel: 'DEBUG'
-    })
-
-    client.client
-        .on('connect', function () {
-            console.log("connect ...");
-        })
-        .on('close', async function (client) {
-            console.log("on close")
-            if (client && client.global.transport.transport.channelsConnected == 0) {
-                result.st = "remote_has_connected";
-                r();
-            }
-        })
-        .on('bitmap', async function (bitmap) {
-            s.update(bitmap);
-        })
-        .on('bitmaps', ({ len }) => {
-            console.log("on bitmaps", len, tsc(), "s");
-        })
-        .on('error', function (err) { console.log("on error", err) })
-
-    try {
-        let ts = (new Date()).getTime()
-        var tsc = () => {
-            return ((new Date()).getTime() - ts) / 1000;
-        }
-        await client.connect(ip, port);
-        console.log("connected");
-
-        const readline = require('readline');
-        const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout
-        });
-        rl.on('line', (line) => {
-            console.log("on line", line);
-            switch (line) {
-                case "s":
-                    s.toFileAsync(`./output/latest.jpg`);
-                    break;
-            }
-        });
-
-        let mouseItv = setInterval(() => {
-            let x = Math.floor(Math.random() * 10);
-            let y = Math.floor(Math.random() * 10);
-            let button = 0;
-            let isPressed = false;
-            //console.log("on mouse", x, y, button, isPressed);
-            client.client.sendPointerEvent(x, y, button, isPressed);
-        }, 2 * 1000)
-
-        await sleep(60 * 1000);
-        result.b64 = await s.toBase64Async();
-    } catch (e) {
-        console.log(e);
-        return null;
+class HowLong {
+    constructor() {
+        this.begain = (new Date()).getTime();
     }
-    return result;
+    take_s() {
+        return this.take_ms() / 1000;
+    }
+    take_ms() {
+        return ((new Date()).getTime() - this.begain);
+    }
 }
 
 let sleep = async (ms) => {
@@ -84,8 +22,130 @@ let sleep = async (ms) => {
     })
 }
 
+/**
+ * 
+ * @param fn {function}
+ */
+async function timeout(ms, fn, args) {
+    return new Promise(async (resolve, reject) => {
+        setTimeout(() => {
+            reject(`timeout err in function ${fn.name}`);
+        }, ms);
+        try {
+            let r = await fn(args);
+            resolve(r);
+        } catch (e) {
+            reject(e)
+        }
+    })
+}
+
+/**
+ * @description unstable function
+ * @param s {Screen}
+ */
+async function wait_pic(s) {
+    return new Promise((resolve, reject) => {
+        let latest_ts = 0, recv_bitmaps_count = 0, sum_lantency_ts = 0, avg_lantency = 0, t = 0;
+        s.on('bitmaps', (len, howlong) => {
+            let ms = howlong.take_ms();
+            if (t) {
+                clearTimeout(t);
+            }
+
+            sum_lantency_ts += ms - latest_ts;
+            recv_bitmaps_count++;
+            if (latest_ts && len > 10) {
+                avg_lantency = (sum_lantency_ts / recv_bitmaps_count).toFixed(2);
+                console.log(`on bitmaps len:${len},current_lantency:${ms - latest_ts}ms,count:${recv_bitmaps_count},avg_lantency:${avg_lantency}ms/c`, ms, "ms");
+            } else {
+                console.log(`on bitmaps len:${len},current_lantency:${ms - latest_ts}ms,count:${recv_bitmaps_count},avg_lantency:${avg_lantency}ms/c`, ms, "ms");
+            }
+
+            if (len < 10) {
+                t = setTimeout(async () => {
+                    console.log(`Exceeding timeout len:${len},count:${recv_bitmaps_count},current_lantency:${howlong.take_ms() - latest_ts}ms,avg_lantency:${avg_lantency}ms/c`, howlong.take_ms(), "ms");
+                    resolve();
+                }, avg_lantency * 30)
+            }
+            latest_ts = ms;
+        })
+    })
+
+}
+
+/**
+ * @returns 
+ */
+let scrpy_rdp = async (ip, port = 3389) => {
+    let s = new Screen(SCREEN_SIZE);
+    let howlong = new HowLong();
+    const client = new pRDPclient({
+        domain: '',
+        enablePerf: false,
+        autoLogin: false,
+        decompress: true,
+        screen: SCREEN_SIZE,
+        locale: 'en',
+        logLevel: 'DEBUG'
+    })
+
+    const readline = require('readline');
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    });
+    rl.on('line', (line) => {
+        console.log("on line", line);
+        switch (line) {
+            case "s":
+                s.toFileAsync(`./output/latest.jpg`);
+                break;
+        }
+    });
+
+    client.client
+        .on('connect', function () {
+            console.log("connect ...");
+        })
+        .on('close', async function (client) {
+            s.emit('close', client);
+        })
+        .on('bitmap', async function (bitmap) {
+            s.update(bitmap);
+        })
+        .on('bitmaps', (len) => {
+            s.emit('bitmaps', len, howlong);
+        })
+        .on('error', function (err) { console.log("on error", err) })
+
+    try {
+        await client.connect(ip, port);
+        console.log("connected");
+
+        let mouseItv = setInterval(() => {
+            let x = SCREEN_SIZE.width - 10 + Math.floor(Math.random() * 10);
+            let y = Math.floor(Math.random() * 10);
+            let button = 0;
+            let isPressed = false;
+            client.client.sendPointerEvent(x, y, button, isPressed);
+        }, 2 * 1000)
+
+        await timeout(180 * 1000, wait_pic, s)
+        client.end();
+        return {
+            pic: await s.toBase64Async(),
+            ip: ip,
+            port: port
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+
 (async () => {
-    let ip = "23.106.160.198"//45.11.19.217
+    let ip = "45.11.19.217"//45.11.19.217
     let r = await scrpy_rdp(ip);
     console.log(r);
 })()
