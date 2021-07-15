@@ -1,9 +1,7 @@
-const scrpy_rdp = require("./scrpy");
+const { scrpy_rdp, timeout, sleep } = require("./scrpy");
 const analysisLog = require('why-is-node-running');
-const { getSystemErrorMap } = require("util");
-
 (async () => {
-    let ip = "192.168.31.8";
+    let ip = "127.0.0.1";
     let port = 3389
     if (process.argv[2]) {
         ip = process.argv[2]
@@ -13,6 +11,6 @@ const { getSystemErrorMap } = require("util");
     }
     let r = await scrpy_rdp(ip, port);
     console.log(r);
-    //analysisLog();
+    process.exit(0)
 })()
 

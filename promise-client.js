@@ -27,7 +27,11 @@ module.exports = class pRDPclient extends EventEmitter {
 
     async close() {
         return new Promise((r, j) => {
+            let t = setTimeout(() => {
+                r();
+            }, 3 * 1000)
             this.client.on("close", () => {
+                clearTimeout(t);
                 r();
             });
         })

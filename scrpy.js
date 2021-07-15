@@ -33,11 +33,13 @@ let sleep = async (ms) => {
  */
 async function timeout(ms, fn, args) {
     return new Promise(async (resolve, reject) => {
+        let context = {}
         let t = setTimeout(() => {
-            reject(`timeout err in function ${fn.name}`);
+            context.cancel = true;
+            reject(new Error("timeout", `timeout err in function ${fn.name}`));
         }, ms);
         try {
-            let r = await fn(args);
+            let r = await fn(context, args);
             clearTimeout(t);
             resolve(r);
         } catch (e) {
@@ -49,27 +51,29 @@ async function timeout(ms, fn, args) {
 
 /**
  * @description unstable function
+ * @param context {Object}
  * @param s {Screen}
  */
-async function wait_pic(s) {
+async function wait_pic(context, s) {
     return new Promise(async (resolve, reject) => {
         let latest_ts = 0, recv_bitmaps_count = 0, sum_lantency_ts = 0, avg_lantency = 0, t = 0;
         s.on('bitmaps', (len, howlong) => {
-            let ms = howlong.take_ms();
-            if (t) {
+            if (context.cancel){
                 clearTimeout(t);
+                resolve();
             }
-
+            let ms = howlong.take_ms();
             sum_lantency_ts += ms - latest_ts;
             recv_bitmaps_count++;
             if (latest_ts && len > 10) {
-                avg_lantency = (sum_lantency_ts / recv_bitmaps_count).toFixed(2);
+                avg_lantency = parseFloat((sum_lantency_ts / recv_bitmaps_count).toFixed(2));
                 console.log(`on bitmaps len:${len},current_lantency:${ms - latest_ts}ms,count:${recv_bitmaps_count},avg_lantency:${avg_lantency}ms/c`, ms, "ms");
             } else {
                 console.log(`on bitmaps len:${len},current_lantency:${ms - latest_ts}ms,count:${recv_bitmaps_count},avg_lantency:${avg_lantency}ms/c`, ms, "ms");
             }
 
-            if (len < 10) {
+            if (len < 10 && avg_lantency != 0) {
+                clearTimeout(t);
                 t = setTimeout(async () => {
                     console.log(`Exceeding timeout len:${len},count:${recv_bitmaps_count},current_lantency:${howlong.take_ms() - latest_ts}ms,avg_lantency:${avg_lantency}ms/c`, howlong.take_ms(), "ms");
                     resolve();
@@ -125,7 +129,13 @@ let scrpy_rdp = async (ip, port = 3389) => {
             client.client.sendPointerEvent(x, y, button, isPressed);
         }, SEND_MOUSE_INTERVAL)
 
-        await timeout(ALL_WAIT_TS, wait_pic, screen);
+        try {
+            await timeout(ALL_WAIT_TS, wait_pic, screen);
+        } catch (err) {
+            if (err.message != "timeout") {
+                console.error(err);
+            }
+        }
 
         client.end();
         await client.close();
@@ -140,5 +150,5 @@ let scrpy_rdp = async (ip, port = 3389) => {
     }
 }
 
-module.exports = scrpy_rdp
+module.exports = { scrpy_rdp, timeout, sleep }
 
