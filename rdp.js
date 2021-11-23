@@ -1,5 +1,5 @@
 const { scrpy_rdp, timeout, sleep } = require("./scrpy");
-const analysisLog = require('why-is-node-running');
+const { writeFile } = require('fs/promises');
 (async () => {
     let ip = "127.0.0.1";
     let port = 3389
@@ -11,6 +11,7 @@ const analysisLog = require('why-is-node-running');
     }
     let r = await scrpy_rdp(ip, port);
     console.log(r);
+    await writeFile(`${ip}_${port}.json`, JSON.stringify(r))
     process.exit(0)
 })()
 

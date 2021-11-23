@@ -14,8 +14,7 @@
   "main": "rdp",
   "dependencies": {
     "bunyan": "^1.8.12",
-    "jimp": "^0.16.1",
-    "lodash.isnumber": "^3.0.3"
+    "jimp": "^0.16.1"
   },
   "devDependencies": {
     "@types/node": "^16.3.0",

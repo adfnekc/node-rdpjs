@@ -1,7 +1,7 @@
 const pRDPclient = require('./promise-client');
 const Screen = require('./screen');
 
-const SCREEN_SIZE = { width: 1024, height: 800 };
+const SCREEN_SIZE = { width: 800, height: 600 };
 const ALL_WAIT_TS = 180 * 1000;
 const SEND_MOUSE_INTERVAL = 2 * 1000;
 const MAX_MULTI_LANTENCY = 10;
@@ -141,7 +141,7 @@ let scrpy_rdp = async (ip, port = 3389) => {
         await client.close();
         clearInterval(mouseItv);
         return {
-            buf: await screen.get_low_jpeg_buf(),
+            pic: await screen.toBase64Async(),
             ip: ip,
             port: port
         }
